@@ -4,7 +4,7 @@ class ServoController {
         this.currentAngle = 0;
         this.currentDistance = 0;
         this.scanRange = { start: 0, end: 180 };
-        this.detections = [];
+        this.detections = []; // L'historique des points
         this.radarContext = null;
         this.mqttConnected = false;
         this.init();
@@ -22,22 +22,22 @@ class ServoController {
         }
     }
 
-    // INITIALISATION RADAR - CORRIGÉE
+    // --- MODIFIÉ : INITIALISATION RADAR (RECTANGULAIRE) ---
     initRadarVisualization() {
         const canvas = document.getElementById('radarCanvas');
         if (canvas) {
             // Forcer les dimensions
             canvas.width = 400;
-            canvas.height = 300; // Réduit la hauteur pour le demi-cercle
+            canvas.height = 300;
             this.radarContext = canvas.getContext('2d');
-            console.log('✅ Canvas radar initialisé');
-            this.drawRadarBase();
+            console.log('✅ Canvas radar rectangulaire initialisé');
+            this.drawRadarBase(); // Dessiner la base vide
         } else {
             console.log('❌ Canvas radar non trouvé');
         }
     }
 
-    // DESSIN RADAR - MODIFIÉ POUR DEMI-CERCLE
+    // --- MODIFIÉ : DESSIN RADAR (GRAPHIQUE CARTÉSIEN) ---
     drawRadarBase() {
         if (!this.radarContext) {
             console.log('❌ Contexte radar non disponible');
@@ -45,125 +45,141 @@ class ServoController {
         }
         
         const ctx = this.radarContext;
-        const centerX = 200;
-        const centerY = 250; // Déplacé vers le bas pour le demi-cercle
-        const radius = 180;
+        const width = ctx.canvas.width;
+        const height = ctx.canvas.height;
         
-        // Effacer le canvas
-        ctx.clearRect(0, 0, 400, 300);
+        // --- Constantes de la grille ---
+        const margin = { top: 20, right: 20, bottom: 40, left: 40 };
+        const plotWidth = width - margin.left - margin.right;
+        const plotHeight = height - margin.top - margin.bottom;
+        const maxDist = 400; // Distance max en cm (axe Y)
+        const maxAngle = 180; // Angle max en degrés (axe X)
         
         // Fond
         ctx.fillStyle = '#0a1929';
-        ctx.fillRect(0, 0, 400, 300);
+        ctx.fillRect(0, 0, width, height);
         
-        // Cercles concentriques (demi-cercles seulement)
         ctx.strokeStyle = '#1e3a5c';
         ctx.lineWidth = 1;
-        
-        for (let i = 1; i <= 4; i++) {
-            ctx.beginPath();
-            // Dessiner seulement le demi-cercle supérieur (de 0° à 180°)
-            ctx.arc(centerX, centerY, radius * i / 4, Math.PI, 2 * Math.PI);
-            ctx.stroke();
-        }
-        
-        // Lignes angulaires (demi-cercle seulement)
-        ctx.strokeStyle = '#1e3a5c';
-        for (let angle = 0; angle <= 180; angle += 30) {
-            const rad = (angle - 180) * Math.PI / 180; // Ajusté pour le demi-cercle
-            ctx.beginPath();
-            ctx.moveTo(centerX, centerY);
-            ctx.lineTo(
-                centerX + radius * Math.cos(rad),
-                centerY + radius * Math.sin(rad)
-            );
-            ctx.stroke();
-        }
-        
-        // Indicateurs d'angle (adapté pour demi-cercle)
         ctx.fillStyle = '#4a90e2';
-        ctx.font = '12px Arial';
+        ctx.font = '10px Arial';
+
+        // --- Grille verticale (Angles) ---
         ctx.textAlign = 'center';
+        ctx.textBaseline = 'top';
+        for (let angle = 0; angle <= maxAngle; angle += 45) {
+            const x = margin.left + (angle / maxAngle) * plotWidth;
+            ctx.beginPath();
+            ctx.moveTo(x, margin.top);
+            ctx.lineTo(x, margin.top + plotHeight);
+            ctx.stroke();
+            ctx.fillText(angle + '°', x, margin.top + plotHeight + 5);
+        }
+
+        // --- Grille horizontale (Distance) ---
+        ctx.textAlign = 'right';
         ctx.textBaseline = 'middle';
-        
-        [0, 45, 90, 135, 180].forEach(angle => {
-            const rad = (angle - 180) * Math.PI / 180; // Même correction
-            const x = centerX + (radius + 20) * Math.cos(rad);
-            const y = centerY + (radius + 20) * Math.sin(rad);
-            ctx.fillText(angle + '°', x, y);
-        });
-        
-        // Ligne de base du demi-cercle
-        ctx.strokeStyle = '#1e3a5c';
+        for (let dist = 0; dist <= maxDist; dist += 100) {
+            const y = margin.top + plotHeight - (dist / maxDist) * plotHeight;
+            if (dist > 0) { // Ne pas dessiner la ligne pour 0
+                ctx.beginPath();
+                ctx.moveTo(margin.left, y);
+                ctx.lineTo(margin.left + plotWidth, y);
+                ctx.stroke();
+            }
+            ctx.fillText(dist, margin.left - 5, y);
+        }
+
+        // --- Axes ---
+        ctx.strokeStyle = '#4a90e2';
         ctx.lineWidth = 2;
+        // Axe X (Angle)
         ctx.beginPath();
-        ctx.moveTo(centerX - radius, centerY);
-        ctx.lineTo(centerX + radius, centerY);
+        ctx.moveTo(margin.left, margin.top + plotHeight);
+        ctx.lineTo(margin.left + plotWidth, margin.top + plotHeight);
+        ctx.stroke();
+        // Axe Y (Distance)
+        ctx.beginPath();
+        ctx.moveTo(margin.left, margin.top);
+        ctx.lineTo(margin.left, margin.top + plotHeight);
         ctx.stroke();
         
-        // Point central
-        ctx.fillStyle = '#00ff00';
-        ctx.beginPath();
-        ctx.arc(centerX, centerY, 3, 0, 2 * Math.PI);
-        ctx.fill();
+        // --- Labels des axes ---
+        ctx.fillStyle = '#8892b0';
+        ctx.font = '12px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'top';
+        ctx.fillText('Angle (°)', margin.left + plotWidth / 2, height - 15);
+        
+        ctx.save();
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'bottom';
+        ctx.translate(15, margin.top + plotHeight / 2);
+        ctx.rotate(-Math.PI / 2);
+        ctx.fillText('Distance (cm)', 0, 0);
+        ctx.restore();
     }
 
-    // MISE À JOUR VISUALISATION RADAR - MODIFIÉE POUR DEMI-CERCLE
+    // --- MODIFIÉ : MISE À JOUR VISUALISATION (RECTANGULAIRE) ---
     updateRadarVisualization(angle, distance) {
-        if (!this.radarContext) {
-            console.log('❌ Contexte radar non disponible');
-            return;
-        }
+        if (!this.radarContext) return;
         
-        if (distance <= 0) {
-            this.drawRadarBase(); // Redessiner seulement la base
-            return;
-        }
-        
-        // Redessiner la base d'abord
+        // 1. Ajouter la nouvelle détection à l'historique
+        this.addDetection(angle, distance);
+
+        // 2. Redessiner la base de la grille (efface l'ancien)
         this.drawRadarBase();
         
         const ctx = this.radarContext;
-        const centerX = 200;
-        const centerY = 250; // Même centre que drawRadarBase
-        const maxRadius = 180;
+
+        // --- Constantes de la grille (identiques à drawRadarBase) ---
+        const margin = { top: 20, right: 20, bottom: 40, left: 40 };
+        const plotWidth = ctx.canvas.width - margin.left - margin.right;
+        const plotHeight = ctx.canvas.height - margin.top - margin.bottom;
+        const maxDist = 400;
+        const maxAngle = 180;
         
-        // Conversion angle pour le demi-cercle (0-180° vers demi-cercle supérieur)
-        const radarAngle = (angle - 180) * Math.PI / 180; // Conversion pour demi-cercle
-        const normalizedDistance = Math.min(distance / 400, 1);
-        const pointRadius = maxRadius * normalizedDistance;
+        // --- Fonctions "Helper" pour mapper les coordonnées ---
+        const mapX = (a) => margin.left + (a / maxAngle) * plotWidth;
+        const mapY = (d) => margin.top + plotHeight - (Math.min(d, maxDist) / maxDist) * plotHeight;
+
+        // 3. Dessiner la ligne de balayage (verticale)
+        const sweepX = mapX(angle);
+        ctx.strokeStyle = 'rgba(0, 255, 0, 0.5)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(sweepX, margin.top);
+        ctx.lineTo(sweepX, margin.top + plotHeight);
+        ctx.stroke();
         
-        // Position du point détecté
-        const pointX = centerX + pointRadius * Math.cos(radarAngle);
-        const pointY = centerY + pointRadius * Math.sin(radarAngle);
-        
-        // Ligne de balayage (seulement si dans le demi-cercle)
-        if (angle >= 0 && angle <= 180) {
-            ctx.strokeStyle = '#00ff00';
-            ctx.lineWidth = 2;
-            ctx.beginPath();
-            ctx.moveTo(centerX, centerY);
-            ctx.lineTo(pointX, pointY);
-            ctx.stroke();
+        // 4. Dessiner tous les points de l'historique (this.detections)
+        this.detections.forEach((detection, index) => {
+            const x = mapX(detection.angle);
+            const y = mapY(detection.distance);
+
+            // Ne pas dessiner les points en dehors de la zone
+            if (y < margin.top || detection.distance <= 0) return; 
+
+            // L'opacité diminue avec le temps (le plus récent est le plus opaque)
+            const opacity = 1 - (index / this.detections.length);
             
-            // Point de détection
-            ctx.fillStyle = '#ff4444';
+            // Point
+            ctx.fillStyle = `rgba(255, 68, 68, ${opacity})`;
             ctx.beginPath();
-            ctx.arc(pointX, pointY, 5, 0, 2 * Math.PI);
+            ctx.arc(x, y, 5, 0, 2 * Math.PI);
             ctx.fill();
             
-            // Lueur
-            ctx.fillStyle = 'rgba(255, 68, 68, 0.3)';
-            ctx.beginPath();
-            ctx.arc(pointX, pointY, 8, 0, 2 * Math.PI);
-            ctx.fill();
-        }
-        
-        // Ajouter à l'historique
-        this.addDetection(angle, distance);
+            // Lueur (seulement pour le point le plus récent)
+            if (index === 0) {
+                ctx.fillStyle = 'rgba(255, 68, 68, 0.3)';
+                ctx.beginPath();
+                ctx.arc(x, y, 8, 0, 2 * Math.PI);
+                ctx.fill();
+            }
+        });
     }
 
-    // GESTION DES DÉTECTIONS
+    // GESTION DES DÉTECTIONS (Inchangé)
     addDetection(angle, distance) {
         const detection = {
             angle: angle,
@@ -174,14 +190,16 @@ class ServoController {
         
         this.detections.unshift(detection);
         
-        // Garder seulement les 10 dernières détections
-        if (this.detections.length > 10) {
-            this.detections = this.detections.slice(0, 10);
+        // Garder seulement les X dernières détections
+        // Pour un graphique, on peut en garder plus
+        if (this.detections.length > 100) { // Augmenté de 10 à 100
+            this.detections = this.detections.slice(0, 100);
         }
         
         this.updateDetectionsList();
     }
 
+    // (Inchangé)
     updateDetectionsList() {
         const container = document.getElementById('detectionsList');
         if (!container) return;
@@ -191,7 +209,10 @@ class ServoController {
             return;
         }
         
-        container.innerHTML = this.detections.map(detection => `
+        // On affiche seulement les 10 plus récentes dans la liste texte
+        const recentDetections = this.detections.slice(0, 10);
+        
+        container.innerHTML = recentDetections.map(detection => `
             <div class="detection-item">
                 <div class="detection-angle">${detection.angle}°</div>
                 <div class="detection-distance">${detection.distance.toFixed(1)}cm</div>
@@ -200,7 +221,7 @@ class ServoController {
         `).join('');
     }
 
-    // CONTRÔLE DU RADAR
+    // CONTRÔLE DU RADAR (Inchangé)
     setScanRange(start, end) {
         if (!this.selectedDevice) {
             this.showError('Veuillez sélectionner un radar');
@@ -229,6 +250,7 @@ class ServoController {
         }
     }
 
+    // (Inchangé)
     updateRangeDisplay() {
         const rangeElement = document.getElementById('currentRange');
         const modeElement = document.getElementById('scanMode');
@@ -243,12 +265,13 @@ class ServoController {
         }
     }
 
+    // (Inchangé)
     resetToFullRange() {
         this.setScanRange(0, 180);
         this.log('🔄 Retour au balayage complet 0-180°');
     }
 
-    // GESTION DES DONNÉES
+    // GESTION DES DONNÉES (Inchangé)
     handleRadarData(data) {
         console.log('📡 Données radar reçues:', data);
         
@@ -264,10 +287,12 @@ class ServoController {
             this.updateRadarDisplay(data);
             this.updateRadarVisualization(data.angle, data.distance);
             
-            this.log(`📡 ${data.angle}° | ${data.distance.toFixed(1)}cm`);
+            // On peut commenter ce log pour ne pas spammer la console
+            // this.log(`📡 ${data.angle}° | ${data.distance.toFixed(1)}cm`);
         }
     }
 
+    // (Inchangé)
     updateRadarDisplay(data) {
         // Mettre à jour l'angle
         if (data.angle !== undefined) {
@@ -284,7 +309,7 @@ class ServoController {
         }
     }
 
-    // INTERFACE
+    // INTERFACE (Inchangé)
     setupEventListeners() {
         // Validation des angles
         const startInput = document.getElementById('startAngle');
@@ -296,6 +321,7 @@ class ServoController {
         }
     }
 
+    // (Inchangé)
     validateAngles() {
         const start = parseInt(document.getElementById('startAngle').value) || 0;
         const end = parseInt(document.getElementById('endAngle').value) || 180;
@@ -309,7 +335,7 @@ class ServoController {
         }
     }
 
-    // HANDLERS MQTT
+    // HANDLERS MQTT (Inchangé)
     setupMQTTHandlers() {
         if (authManager) {
             authManager.onDeviceData = (data) => this.handleRadarData(data);
@@ -319,6 +345,7 @@ class ServoController {
         }
     }
 
+    // (Inchangé)
     onMQTTConnected() {
         this.mqttConnected = true;
         this.log('✅ Connecté au radar ESP32');
@@ -326,12 +353,14 @@ class ServoController {
         this.loadUserDevices();
     }
 
+    // (Inchangé)
     onMQTTDisconnected() {
         this.mqttConnected = false;
         this.log('🔌 Déconnecté du radar');
         this.updateConnectionStatus(false);
     }
 
+    // (Inchangé)
     updateConnectionStatus(connected) {
         const statusElement = document.getElementById('mqttStatus');
         if (statusElement) {
@@ -340,7 +369,7 @@ class ServoController {
         }
     }
 
-    // GESTION APPAREILS
+    // GESTION APPAREILS (Inchangé)
     selectDevice(deviceId) {
         const devices = authManager.getUserDevices();
         this.selectedDevice = devices.find(d => d.id === deviceId);
@@ -360,6 +389,7 @@ class ServoController {
         }
     }
 
+    // (Inchangé)
     loadUserDevices() {
         const devices = authManager.getUserDevices();
         const container = document.getElementById('devicesContainer');
@@ -385,7 +415,7 @@ class ServoController {
         }
     }
 
-    // COMMANDES SERVO
+    // COMMANDES SERVO (Inchangé)
     sendServoCommand(startAngle, endAngle) {
         if (!this.selectedDevice) {
             this.showError('Veuillez sélectionner un radar');
@@ -409,7 +439,7 @@ class ServoController {
         }
     }
 
-    // LOGS
+    // LOGS (Inchangé)
     log(message) {
         const logs = document.getElementById('logs');
         if (!logs) return;
@@ -424,10 +454,12 @@ class ServoController {
         }
     }
 
+    // (Inchangé)
     showError(message) {
         this.log(`❌ ${message}`);
     }
 
+    // (Inchangé)
     updateUserInfo() {
         if (authManager.currentUser) {
             const userEmail = document.getElementById('userEmail');
@@ -437,33 +469,53 @@ class ServoController {
         }
     }
 
-    // FONCTION DE TEST
+    // --- MODIFIÉ : FONCTION DE TEST (RECTANGULAIRE) ---
     testRadarVisualization() {
         if (!this.radarContext) {
             this.showError('Radar non initialisé');
             return;
         }
         
-        this.log('🧪 Test de la visualisation radar...');
+        this.log('🧪 Test de la visualisation rectangulaire...');
         
-        // Simuler des détections de test
-        const testDetections = [
-            { angle: 45, distance: 100 },
-            { angle: 90, distance: 200 },
-            { angle: 135, distance: 150 },
-            { angle: 180, distance: 50 }
-        ];
-        
-        testDetections.forEach((detection, index) => {
-            setTimeout(() => {
-                this.updateRadarVisualization(detection.angle, detection.distance);
-                this.log(`🧪 Test: ${detection.angle}° | ${detection.distance}cm`);
-            }, index * 1000);
-        });
+        // Simuler un balayage de 0 à 180 degrés
+        let testAngle = 0;
+        const testInterval = setInterval(() => {
+            if (testAngle > 180) {
+                clearInterval(testInterval);
+                this.log('🧪 Test terminé.');
+                // Redessiner la base vide à la fin
+                setTimeout(() => {
+                    this.detections = []; // Vider l'historique
+                    this.drawRadarBase();
+                }, 1000);
+                return;
+            }
+            
+            // Simuler un "objet" au milieu (entre 60 et 120 degrés)
+            let testDist;
+            if (testAngle > 60 && testAngle < 120) {
+                // Créer une "bosse" sinus
+                testDist = 150 + Math.sin((testAngle - 60) * Math.PI / 60) * 100;
+            } else {
+                testDist = 350; // Distance de "fond"
+            }
+            
+            // Appel de la fonction de mise à jour standard
+            this.updateRadarVisualization(testAngle, testDist);
+            
+            // Mettre à jour les affichages texte
+            this.updateRadarDisplay({ angle: testAngle, distance: testDist });
+            
+            testAngle += 2; // Simuler un pas de balayage
+        }, 50); // Vitesse du test
     }
 }
 
-// FONCTIONS GLOBALES POUR LE CONTRÔLE
+// ===============================================
+// FONCTIONS GLOBALES (Inchangées)
+// ===============================================
+
 function applyCustomRange() {
     const start = parseInt(document.getElementById('startAngle').value) || 0;
     const end = parseInt(document.getElementById('endAngle').value) || 180;
@@ -497,6 +549,8 @@ function testRadar() {
 
 function resetRadar() {
     if (servoController) {
+        // Vider l'historique et redessiner
+        servoController.detections = []; 
         servoController.initRadarVisualization();
         servoController.log('🔄 Radar réinitialisé');
     }
@@ -517,7 +571,10 @@ function clearLogs() {
     }
 }
 
-// FONCTIONS D'APPAIRAGE COMPLÈTES
+// ===============================================
+// FONCTIONS D'APPAIRAGE (Inchangées)
+// ===============================================
+
 async function showPairingModal() {
     const modalHTML = `
         <div class="modal-overlay" id="pairingModal" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; z-index: 1000;">
@@ -690,7 +747,10 @@ function hidePairingModal() {
     }
 }
 
-// Initialisation
+// ===============================================
+// Initialisation (Inchangé)
+// ===============================================
+
 let servoController;
 
 if (window.location.pathname.includes('dashboard.html')) {
