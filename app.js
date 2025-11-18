@@ -5,7 +5,10 @@ class ServoController {
         this.currentDistance = 0;
         this.scanRange = { start: 0, end: 180 };
         this.detections = []; // L'historique des points
+        
         this.radarContext = null;
+        this.shortRadarContext = null; // <-- AJOUTÉ: Contexte pour le 2e radar
+        
         this.mqttConnected = false;
         this.init();
     }
@@ -15,56 +18,64 @@ class ServoController {
         this.loadUserDevices();
         this.updateUserInfo();
         this.setupMQTTHandlers();
+        
         this.initRadarVisualization();
+        this.initShortRadarVisualization(); // <-- AJOUTÉ: Initialisation du 2e radar
         
         if (authManager.currentUser && !authManager.mqttClient) {
             authManager.initMQTT();
         }
     }
 
-    // --- MODIFIÉ : INITIALISATION RADAR (RECTANGULAIRE) ---
+    // --- INITIALISATION RADAR 1 (LONGUE PORTÉE) ---
     initRadarVisualization() {
         const canvas = document.getElementById('radarCanvas');
         if (canvas) {
-            // Forcer les dimensions
             canvas.width = 400;
             canvas.height = 300;
             this.radarContext = canvas.getContext('2d');
-            console.log('✅ Canvas radar rectangulaire initialisé');
+            console.log('✅ Canvas radar LONGUE PORTÉE initialisé');
             this.drawRadarBase(); // Dessiner la base vide
         } else {
-            console.log('❌ Canvas radar non trouvé');
+            console.log('❌ Canvas radar LONGUE PORTÉE non trouvé');
         }
     }
 
-    // --- MODIFIÉ : DESSIN RADAR (GRAPHIQUE CARTÉSIEN) ---
-    drawRadarBase() {
-        if (!this.radarContext) {
-            console.log('❌ Contexte radar non disponible');
-            return;
+    // --- AJOUTÉ : INITIALISATION RADAR 2 (COURTE PORTÉE) ---
+    initShortRadarVisualization() {
+        const canvas = document.getElementById('shortRangeRadarCanvas');
+        if (canvas) {
+            canvas.width = 400;
+            canvas.height = 300;
+            this.shortRadarContext = canvas.getContext('2d');
+            console.log('✅ Canvas radar COURTE PORTÉE initialisé');
+            this.drawShortRadarBase(); // Dessiner sa propre base
+        } else {
+            console.log('❌ Canvas radar COURTE PORTÉE non trouvé');
         }
+    }
+
+    // --- DESSIN RADAR 1 (LONGUE PORTÉE) ---
+    drawRadarBase() {
+        if (!this.radarContext) return;
         
         const ctx = this.radarContext;
         const width = ctx.canvas.width;
         const height = ctx.canvas.height;
-        
-        // --- Constantes de la grille ---
         const margin = { top: 20, right: 20, bottom: 40, left: 40 };
         const plotWidth = width - margin.left - margin.right;
         const plotHeight = height - margin.top - margin.bottom;
-        const maxDist = 400; // Distance max en cm (axe Y)
-        const maxAngle = 180; // Angle max en degrés (axe X)
         
-        // Fond
+        const maxDist = 400; // <-- Max 400cm
+        const maxAngle = 180;
+        
         ctx.fillStyle = '#0a1929';
         ctx.fillRect(0, 0, width, height);
-        
         ctx.strokeStyle = '#1e3a5c';
         ctx.lineWidth = 1;
         ctx.fillStyle = '#4a90e2';
         ctx.font = '10px Arial';
 
-        // --- Grille verticale (Angles) ---
         ctx.textAlign = 'center';
         ctx.textBaseline = 'top';
         for (let angle = 0; angle <= maxAngle; angle += 45) {
@@ -76,12 +87,11 @@ class ServoController {
             ctx.fillText(angle + '°', x, margin.top + plotHeight + 5);
         }
 
-        // --- Grille horizontale (Distance) ---
         ctx.textAlign = 'right';
         ctx.textBaseline = 'middle';
-        for (let dist = 0; dist <= maxDist; dist += 100) {
+        for (let dist = 0; dist <= maxDist; dist += 100) { // <-- Grille tous les 100cm
             const y = margin.top + plotHeight - (dist / maxDist) * plotHeight;
-            if (dist > 0) { // Ne pas dessiner la ligne pour 0
+            if (dist > 0) {
                 ctx.beginPath();
                 ctx.moveTo(margin.left, y);
                 ctx.lineTo(margin.left + plotWidth, y);
@@ -90,21 +100,17 @@ class ServoController {
             ctx.fillText(dist, margin.left - 5, y);
         }
 
-        // --- Axes ---
         ctx.strokeStyle = '#4a90e2';
         ctx.lineWidth = 2;
-        // Axe X (Angle)
         ctx.beginPath();
         ctx.moveTo(margin.left, margin.top + plotHeight);
         ctx.lineTo(margin.left + plotWidth, margin.top + plotHeight);
         ctx.stroke();
-        // Axe Y (Distance)
         ctx.beginPath();
         ctx.moveTo(margin.left, margin.top);
         ctx.lineTo(margin.left, margin.top + plotHeight);
         ctx.stroke();
         
-        // --- Labels des axes ---
         ctx.fillStyle = '#8892b0';
         ctx.font = '12px Arial';
         ctx.textAlign = 'center';
@@ -120,30 +126,97 @@ class ServoController {
         ctx.restore();
     }
 
-    // --- MODIFIÉ : MISE À JOUR VISUALISATION (RECTANGULAIRE) ---
+    // --- AJOUTÉ : DESSIN RADAR 2 (COURTE PORTÉE) ---
+    drawShortRadarBase() {
+        if (!this.shortRadarContext) return;
+
+        const ctx = this.shortRadarContext; // <-- Contexte 2
+        const width = ctx.canvas.width;
+        const height = ctx.canvas.height;
+        const margin = { top: 20, right: 20, bottom: 40, left: 40 };
+        const plotWidth = width - margin.left - margin.right;
+        const plotHeight = height - margin.top - margin.bottom;
+        
+        const maxDist = 50; // <-- Max 50cm
+        const maxAngle = 180;
+        
+        ctx.fillStyle = '#0a1929';
+        ctx.fillRect(0, 0, width, height);
+        ctx.strokeStyle = '#1e3a5c';
+        ctx.lineWidth = 1;
+        ctx.fillStyle = '#4a90e2';
+        ctx.font = '10px Arial';
+
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'top';
+        for (let angle = 0; angle <= maxAngle; angle += 45) {
+            const x = margin.left + (angle / maxAngle) * plotWidth;
+            ctx.beginPath();
+            ctx.moveTo(x, margin.top);
+            ctx.lineTo(x, margin.top + plotHeight);
+            ctx.stroke();
+            ctx.fillText(angle + '°', x, margin.top + plotHeight + 5);
+        }
+
+        ctx.textAlign = 'right';
+        ctx.textBaseline = 'middle';
+        for (let dist = 0; dist <= maxDist; dist += 10) { // <-- Grille tous les 10cm
+            const y = margin.top + plotHeight - (dist / maxDist) * plotHeight;
+            if (dist > 0) {
+                ctx.beginPath();
+                ctx.moveTo(margin.left, y);
+                ctx.lineTo(margin.left + plotWidth, y);
+                ctx.stroke();
+            }
+            ctx.fillText(dist, margin.left - 5, y);
+        }
+
+        ctx.strokeStyle = '#4a90e2';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(margin.left, margin.top + plotHeight);
+        ctx.lineTo(margin.left + plotWidth, margin.top + plotHeight);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(margin.left, margin.top);
+        ctx.lineTo(margin.left, margin.top + plotHeight);
+        ctx.stroke();
+        
+        ctx.fillStyle = '#8892b0';
+        ctx.font = '12px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'top';
+        ctx.fillText('Angle (°)', margin.left + plotWidth / 2, height - 15);
+        
+        ctx.save();
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'bottom';
+        ctx.translate(15, margin.top + plotHeight / 2);
+        ctx.rotate(-Math.PI / 2);
+        ctx.fillText('Distance (cm)', 0, 0);
+        ctx.restore();
+    }
+
+
+    // --- MISE À JOUR VISUALISATION 1 (LONGUE PORTÉE) ---
     updateRadarVisualization(angle, distance) {
         if (!this.radarContext) return;
         
-        // 1. Ajouter la nouvelle détection à l'historique
-        this.addDetection(angle, distance);
-
-        // 2. Redessiner la base de la grille (efface l'ancien)
+        // this.addDetection(angle, distance); <-- DÉPLACÉ vers handleRadarData
+        
         this.drawRadarBase();
         
         const ctx = this.radarContext;
-
-        // --- Constantes de la grille (identiques à drawRadarBase) ---
         const margin = { top: 20, right: 20, bottom: 40, left: 40 };
         const plotWidth = ctx.canvas.width - margin.left - margin.right;
         const plotHeight = ctx.canvas.height - margin.top - margin.bottom;
-        const maxDist = 400;
+        
+        const maxDist = 400; // <-- Max 400cm
         const maxAngle = 180;
         
-        // --- Fonctions "Helper" pour mapper les coordonnées ---
         const mapX = (a) => margin.left + (a / maxAngle) * plotWidth;
         const mapY = (d) => margin.top + plotHeight - (Math.min(d, maxDist) / maxDist) * plotHeight;
 
-        // 3. Dessiner la ligne de balayage (verticale)
         const sweepX = mapX(angle);
         ctx.strokeStyle = 'rgba(0, 255, 0, 0.5)';
         ctx.lineWidth = 2;
@@ -152,26 +225,64 @@ class ServoController {
         ctx.lineTo(sweepX, margin.top + plotHeight);
         ctx.stroke();
         
-        // 4. Dessiner tous les points de l'historique (this.detections)
         this.detections.forEach((detection, index) => {
             const x = mapX(detection.angle);
             const y = mapY(detection.distance);
-
-            // Ne pas dessiner les points en dehors de la zone
             if (y < margin.top || detection.distance <= 0) return; 
-
-            // L'opacité diminue avec le temps (le plus récent est le plus opaque)
             const opacity = 1 - (index / this.detections.length);
-            
-            // Point
             ctx.fillStyle = `rgba(255, 68, 68, ${opacity})`;
             ctx.beginPath();
             ctx.arc(x, y, 5, 0, 2 * Math.PI);
             ctx.fill();
-            
-            // Lueur (seulement pour le point le plus récent)
             if (index === 0) {
                 ctx.fillStyle = 'rgba(255, 68, 68, 0.3)';
+                ctx.beginPath();
+                ctx.arc(x, y, 8, 0, 2 * Math.PI);
+                ctx.fill();
+            }
+        });
+    }
+
+    // --- AJOUTÉ : MISE À JOUR VISUALISATION 2 (COURTE PORTÉE) ---
+    updateShortRadarVisualization(angle, distance) {
+        if (!this.shortRadarContext) return;
+        
+        this.drawShortRadarBase(); // <-- Dessine la base courte portée
+        
+        const ctx = this.shortRadarContext; // <-- Contexte 2
+        const margin = { top: 20, right: 20, bottom: 40, left: 40 };
+        const plotWidth = ctx.canvas.width - margin.left - margin.right;
+        const plotHeight = ctx.canvas.height - margin.top - margin.bottom;
+        
+        const maxDist = 50; // <-- Max 50cm
+        const maxAngle = 180;
+        
+        const mapX = (a) => margin.left + (a / maxAngle) * plotWidth;
+        const mapY = (d) => margin.top + plotHeight - (Math.min(d, maxDist) / maxDist) * plotHeight;
+
+        const sweepX = mapX(angle);
+        ctx.strokeStyle = 'rgba(0, 255, 0, 0.5)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(sweepX, margin.top);
+        ctx.lineTo(sweepX, margin.top + plotHeight);
+        ctx.stroke();
+        
+        this.detections.forEach((detection, index) => {
+            const x = mapX(detection.angle);
+            const y = mapY(detection.distance);
+            
+            // Ne dessine que les points DANS la plage 0-50cm
+            if (y < margin.top || detection.distance <= 0 || detection.distance > maxDist) return; 
+
+            const opacity = 1 - (index / this.detections.length);
+            // Change la couleur pour le radar courte portée
+            ctx.fillStyle = `rgba(255, 165, 0, ${opacity})`; // Orange
+            ctx.beginPath();
+            ctx.arc(x, y, 5, 0, 2 * Math.PI);
+            ctx.fill();
+            if (index === 0) {
+                ctx.fillStyle = 'rgba(255, 165, 0, 0.3)';
                 ctx.beginPath();
                 ctx.arc(x, y, 8, 0, 2 * Math.PI);
                 ctx.fill();
@@ -190,9 +301,7 @@ class ServoController {
         
         this.detections.unshift(detection);
         
-        // Garder seulement les X dernières détections
-        // Pour un graphique, on peut en garder plus
-        if (this.detections.length > 100) { // Augmenté de 10 à 100
+        if (this.detections.length > 100) {
             this.detections = this.detections.slice(0, 100);
         }
         
@@ -209,7 +318,6 @@ class ServoController {
             return;
         }
         
-        // On affiche seulement les 10 plus récentes dans la liste texte
         const recentDetections = this.detections.slice(0, 10);
         
         container.innerHTML = recentDetections.map(detection => `
@@ -227,26 +335,21 @@ class ServoController {
             this.showError('Veuillez sélectionner un radar');
             return;
         }
-
         if (start >= end) {
-            this.showError('L\'angle de début doit être inférieur à l\'angle de fin');
+            this.showError('L\'angle de début doit être inférieur à l angle de fin');
             return;
         }
-
         if (start < 0 || end > 180) {
             this.showError('Les angles doivent être entre 0° et 180°');
             return;
         }
-
         this.scanRange = { start, end };
-        
         const success = authManager.controlServo(start, end);
-        
         if (success) {
             this.updateRangeDisplay();
             this.log(`🎯 Plage de balayage: ${start}°-${end}°`);
         } else {
-            this.showError('Erreur lors de l\'envoi de la commande');
+            this.showError('Erreur lors de l envoi de la commande');
         }
     }
 
@@ -254,11 +357,9 @@ class ServoController {
     updateRangeDisplay() {
         const rangeElement = document.getElementById('currentRange');
         const modeElement = document.getElementById('scanMode');
-        
         if (rangeElement) {
             rangeElement.textContent = `${this.scanRange.start}° - ${this.scanRange.end}°`;
         }
-        
         if (modeElement) {
             modeElement.textContent = this.scanRange.start === 0 && this.scanRange.end === 180 ? 
                 'Balayage complet' : 'Plage personnalisée';
@@ -271,12 +372,12 @@ class ServoController {
         this.log('🔄 Retour au balayage complet 0-180°');
     }
 
-    // GESTION DES DONNÉES (Inchangé)
+    // GESTION DES DONNÉES (MODIFIÉ)
     handleRadarData(data) {
-        console.log('📡 Données radar reçues:', data);
+        // console.log('📡 Données radar reçues:', data); // Décommenter pour débugger
         
         if (!this.selectedDevice) {
-            console.log('📡 Données en attente de sélection');
+            // console.log('📡 Données en attente de sélection'); // Décommenter pour débugger
             return;
         }
 
@@ -285,23 +386,26 @@ class ServoController {
             this.currentDistance = data.distance;
             
             this.updateRadarDisplay(data);
-            this.updateRadarVisualization(data.angle, data.distance);
             
-            // On peut commenter ce log pour ne pas spammer la console
+            // --- MODIFIÉ ---
+            // 1. Ajouter la détection à l'historique (une seule fois)
+            this.addDetection(data.angle, data.distance);
+            
+            // 2. Mettre à jour les deux graphiques
+            this.updateRadarVisualization(data.angle, data.distance);
+            this.updateShortRadarVisualization(data.angle, data.distance);
+            
             // this.log(`📡 ${data.angle}° | ${data.distance.toFixed(1)}cm`);
         }
     }
 
     // (Inchangé)
     updateRadarDisplay(data) {
-        // Mettre à jour l'angle
         if (data.angle !== undefined) {
             this.currentAngle = data.angle;
             const angleElement = document.getElementById('currentAngle');
             if (angleElement) angleElement.textContent = data.angle + '°';
         }
-        
-        // Mettre à jour la distance
         if (data.distance !== undefined) {
             this.currentDistance = data.distance;
             const distanceElement = document.getElementById('currentDistance');
@@ -311,10 +415,8 @@ class ServoController {
 
     // INTERFACE (Inchangé)
     setupEventListeners() {
-        // Validation des angles
         const startInput = document.getElementById('startAngle');
         const endInput = document.getElementById('endAngle');
-        
         if (startInput && endInput) {
             startInput.addEventListener('change', this.validateAngles.bind(this));
             endInput.addEventListener('change', this.validateAngles.bind(this));
@@ -325,7 +427,6 @@ class ServoController {
     validateAngles() {
         const start = parseInt(document.getElementById('startAngle').value) || 0;
         const end = parseInt(document.getElementById('endAngle').value) || 180;
-        
         if (start >= end) {
             document.getElementById('startAngle').classList.add('error');
             document.getElementById('endAngle').classList.add('error');
@@ -369,18 +470,18 @@ class ServoController {
         }
     }
 
-    // GESTION APPAREILS (Inchangé)
+    // GESTION APPAREILS (MODIFIÉ)
     selectDevice(deviceId) {
         const devices = authManager.getUserDevices();
         this.selectedDevice = devices.find(d => d.id === deviceId);
         
         if (this.selectedDevice) {
-            // Afficher les sections
             document.getElementById('controlSection').style.display = 'block';
             document.getElementById('radarVizSection').style.display = 'block';
             
-            // Réinitialiser le radar
+            // Réinitialiser les deux radars
             this.initRadarVisualization();
+            this.initShortRadarVisualization(); // <-- AJOUTÉ
             
             this.log(`📱 Radar sélectionné: ${this.selectedDevice.name}`);
             this.log('✅ Réception des données activée');
@@ -394,9 +495,7 @@ class ServoController {
         const devices = authManager.getUserDevices();
         const container = document.getElementById('devicesContainer');
         const noDevices = document.getElementById('noDevices');
-        
         if (!container) return;
-        
         if (devices.length === 0) {
             if (noDevices) noDevices.style.display = 'block';
             container.innerHTML = '';
@@ -405,7 +504,7 @@ class ServoController {
             container.innerHTML = devices.map(device => `
                 <div class="device-card" onclick="servoController.selectDevice('${device.id}')">
                     <div class="device-icon">📡</div>
-                    <div class="device-info">
+                    <div class.device-info">
                         <h3>${device.name}</h3>
                         <p>${device.type}</p>
                         <p class="device-status">Status: <span class="status-${device.status}">${device.status}</span></p>
@@ -421,17 +520,13 @@ class ServoController {
             this.showError('Veuillez sélectionner un radar');
             return;
         }
-
         if (!authManager.isMQTTConnected()) {
             this.showError('Déconnecté du radar');
             return;
         }
-
         startAngle = Math.max(0, startAngle);
         endAngle = Math.min(180, endAngle);
-        
         const success = authManager.controlServo(startAngle, endAngle);
-        
         if (success) {
             this.log(`🎯 Plage balayage: ${startAngle}°-${endAngle}°`);
         } else {
@@ -443,11 +538,9 @@ class ServoController {
     log(message) {
         const logs = document.getElementById('logs');
         if (!logs) return;
-        
         const timestamp = new Date().toLocaleTimeString();
         logs.innerHTML += `[${timestamp}] ${message}<br>`;
         logs.scrollTop = logs.scrollHeight;
-        
         const logsCount = document.getElementById('logsCount');
         if (logsCount) {
             logsCount.textContent = (logs.children.length || 0);
@@ -469,62 +562,59 @@ class ServoController {
         }
     }
 
-    // --- MODIFIÉ : FONCTION DE TEST (RECTANGULAIRE) ---
+    // --- FONCTION DE TEST (MODIFIÉ) ---
     testRadarVisualization() {
-        if (!this.radarContext) {
-            this.showError('Radar non initialisé');
+        if (!this.radarContext || !this.shortRadarContext) {
+            this.showError('Radars non initialisés');
             return;
         }
         
         this.log('🧪 Test de la visualisation rectangulaire...');
         
-        // Simuler un balayage de 0 à 180 degrés
         let testAngle = 0;
         const testInterval = setInterval(() => {
             if (testAngle > 180) {
                 clearInterval(testInterval);
                 this.log('🧪 Test terminé.');
-                // Redessiner la base vide à la fin
                 setTimeout(() => {
-                    this.detections = []; // Vider l'historique
+                    this.detections = [];
                     this.drawRadarBase();
+                    this.drawShortRadarBase(); // <-- AJOUTÉ
                 }, 1000);
                 return;
             }
             
-            // Simuler un "objet" au milieu (entre 60 et 120 degrés)
             let testDist;
-            if (testAngle > 60 && testAngle < 120) {
-                // Créer une "bosse" sinus
-                testDist = 150 + Math.sin((testAngle - 60) * Math.PI / 60) * 100;
+            if (testAngle > 30 && testAngle < 90) {
+                testDist = 20 + Math.sin((testAngle - 30) * Math.PI / 60) * 25; // Objet proche (20-45cm)
+            } else if (testAngle > 120 && testAngle < 150) {
+                testDist = 150; // Objet lointain
             } else {
-                testDist = 350; // Distance de "fond"
+                testDist = 350;
             }
             
-            // Appel de la fonction de mise à jour standard
-            this.updateRadarVisualization(testAngle, testDist);
+            // Mettre à jour les données (appellera les deux updates)
+            this.handleRadarData({ angle: testAngle, distance: testDist });
             
-            // Mettre à jour les affichages texte
-            this.updateRadarDisplay({ angle: testAngle, distance: testDist });
-            
-            testAngle += 2; // Simuler un pas de balayage
-        }, 50); // Vitesse du test
+            testAngle += 2;
+        }, 50);
     }
 }
 
 // ===============================================
-// FONCTIONS GLOBALES (Inchangées)
+// FONCTIONS GLOBALES (MODIFIÉ)
 // ===============================================
 
+// (Inchangé)
 function applyCustomRange() {
     const start = parseInt(document.getElementById('startAngle').value) || 0;
     const end = parseInt(document.getElementById('endAngle').value) || 180;
-    
     if (servoController) {
         servoController.setScanRange(start, end);
     }
 }
 
+// (Inchangé)
 function resetToFullRange() {
     if (servoController) {
         servoController.resetToFullRange();
@@ -533,6 +623,7 @@ function resetToFullRange() {
     }
 }
 
+// (Inchangé)
 function setScanZone(start, end) {
     if (servoController) {
         servoController.setScanRange(start, end);
@@ -541,25 +632,29 @@ function setScanZone(start, end) {
     }
 }
 
+// (Inchangé)
 function testRadar() {
     if (servoController) {
         servoController.testRadarVisualization();
     }
 }
 
+// (MODIFIÉ)
 function resetRadar() {
     if (servoController) {
-        // Vider l'historique et redessiner
         servoController.detections = []; 
         servoController.initRadarVisualization();
-        servoController.log('🔄 Radar réinitialisé');
+        servoController.initShortRadarVisualization(); // <-- AJOUTÉ
+        servoController.log('🔄 Radars réinitialisés');
     }
 }
 
+// (Inchangé)
 function logout() {
     authManager.logout();
 }
 
+// (Inchangé)
 function clearLogs() {
     const logs = document.getElementById('logs');
     if (logs) {
@@ -645,9 +740,11 @@ async function showPairingModal() {
     document.body.insertAdjacentHTML('beforeend', modalHTML);
 }
 
+// (Inchangé)
 let pairingInterval = null;
 let pairingStartTime = null;
 
+// (Inchangé)
 async function startPairingSearch() {
     document.getElementById('pairingInstructions').style.display = 'none';
     document.getElementById('pairingProgress').style.display = 'block';
@@ -669,6 +766,7 @@ async function startPairingSearch() {
     showPairingResult(device);
 }
 
+// (Inchangé)
 function showPairingResult(device) {
     document.getElementById('pairingProgress').style.display = 'none';
     const resultDiv = document.getElementById('pairingResult');
@@ -716,6 +814,7 @@ function showPairingResult(device) {
     }
 }
 
+// (Inchangé)
 function cancelPairing() {
     if (pairingInterval) {
         clearInterval(pairingInterval);
@@ -724,6 +823,7 @@ function cancelPairing() {
     hidePairingModal();
 }
 
+// (Inchangé)
 function completePairing() {
     authManager.showNotification('Appareil ajouté sur gay/1 !', 'success');
     hidePairingModal();
@@ -732,11 +832,13 @@ function completePairing() {
     }
 }
 
+// (Inchangé)
 function retryPairing() {
     document.getElementById('pairingResult').style.display = 'none';
     document.getElementById('pairingInstructions').style.display = 'block';
 }
 
+// (Inchangé)
 function hidePairingModal() {
     if (pairingInterval) {
         clearInterval(pairingInterval);

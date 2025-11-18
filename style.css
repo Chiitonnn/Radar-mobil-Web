@@ -597,12 +597,23 @@ input[type="range"] {
     background: #0a1929;
     border-radius: 10px;
     padding: 20px;
-    text-align: center;
+    /* text-align: center; <-- Supprimé */
+    
+    /* -- AJOUTÉ -- */
+    display: grid;
+    grid-template-columns: 1fr 1fr; /* Deux colonnes égales */
+    gap: 20px;
+    align-items: center;
 }
 
-#radarCanvas {
+#radarCanvas, #shortRangeRadarCanvas {
     border: 2px solid #1e3a5c;
     background: #0a1929;
+    
+    /* -- AJOUTÉ -- */
+    width: 100%; /* Prendra la largeur de sa colonne de grille */
+    height: auto; /* Gardera le ratio hauteur/largeur */
+    aspect-ratio: 4 / 3; /* Force le ratio 400/300 */
 }
 
 .radar-info {
@@ -662,6 +673,11 @@ input[type="range"] {
         grid-template-columns: 1fr;
     }
     
+    /* -- AJOUTÉ -- */
+    .radar-display {
+        grid-template-columns: 1fr; /* Une seule colonne sur mobile */
+    }
+
     .radar-status {
         grid-template-columns: 1fr;
     }
