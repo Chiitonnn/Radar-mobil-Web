@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Appairage - Contrôle Servo</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="pairing-page">
+    <div class="pairing-container">
+        <div class="pairing-header">
+            <h1>🔗 Appairage Direct</h1>
+            <p>Connectez votre ESP32 en mode WiFi Manager</p>
+        </div>
+
+        <div class="pairing-steps">
+            <div class="step">
+                <div class="step-number">1</div>
+                <div class="step-content">
+                    <h3>Redémarrez l'ESP32</h3>
+                    <p>Appuyez sur le bouton RESET</p>
+                </div>
+            </div>
+            <div class="step">
+                <div class="step-number">2</div>
+                <div class="step-content">
+                    <h3>Connectez-vous au WiFi</h3>
+                    <p>Réseau: <strong>ESP32_Servo_Setup</strong></p>
+                </div>
+            </div>
+            <div class="step">
+                <div class="step-number">3</div>
+                <div class="step-content">
+                    <h3>Configurez votre WiFi</h3>
+                    <p>La page de configuration s'ouvrira automatiquement</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="pairing-actions">
+            <button onclick="startPairing()" class="btn btn-success btn-full">Démarrer l'appairage</button>
+            <a href="index.html" class="btn btn-primary btn-full">Retour à la connexion</a>
+        </div>
+    </div>
+
+    <script>
+        function startPairing() {
+            alert("Mode appairage activé ! Connectez-vous au WiFi 'ESP32_Servo_Setup'");
+        }
+    </script>
+</body>
+</html>

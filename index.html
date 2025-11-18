@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Connexion - Contrôle Servo</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="auth-page">
+    <div class="auth-container">
+        <div class="auth-card" id="loginCard">
+            <h1>🔐 Connexion</h1>
+            <form id="loginForm">
+                <div class="input-group">
+                    <label>Email:</label>
+                    <input type="email" id="email" required>
+                </div>
+                <div class="input-group">
+                    <label>Mot de passe:</label>
+                    <input type="password" id="password" required>
+                </div>
+                <button type="submit" class="btn btn-primary btn-full">Se connecter</button>
+            </form>
+            <div class="auth-links">
+                <a href="#" onclick="showRegister()">Créer un compte</a>
+                <a href="pairing.html">Appairer un appareil</a>
+            </div>
+        </div>
+
+        <div class="auth-card" id="registerCard" style="display: none;">
+            <h1>📝 Créer un compte</h1>
+            <form id="registerForm">
+                <div class="input-group">
+                    <label>Nom:</label>
+                    <input type="text" id="name" required>
+                </div>
+                <div class="input-group">
+                    <label>Email:</label>
+                    <input type="email" id="newEmail" required>
+                </div>
+                <div class="input-group">
+                    <label>Mot de passe:</label>
+                    <input type="password" id="newPassword" required>
+                </div>
+                <button type="submit" class="btn btn-success btn-full">Créer le compte</button>
+            </form>
+            <div class="auth-links">
+                <a href="#" onclick="showLogin()">Déjà un compte ?</a>
+            </div>
+        </div>
+    </div>
+
+    <script src="auth.js"></script>
+</body>
+</html>

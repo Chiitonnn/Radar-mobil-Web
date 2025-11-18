@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tableau de Bord - Contrôle Servo</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+</head>
+<body class="dashboard-page">
+    <header class="dashboard-header">
+        <div class="header-content">
+            <h1>🎮 Tableau de Bord Servo</h1>
+            <div class="user-info">
+                <span class="user-email" id="userEmail">utilisateur@email.com</span>
+                <a href="profile.html" class="btn btn-secondary btn-small">Mon Profil</a>
+            </div>
+        </div>
+    </header>
+
+    <div class="dashboard-container">
+        <!-- Section Appareils -->
+        <div class="section">
+            <h2>📱 Mes Appareils</h2>
+            <div id="devicesList">
+                <div class="no-devices" id="noDevices">
+                    <p>Aucun appareil appairé</p>
+                    <div style="display: flex; gap: 10px; justify-content: center; margin-top: 15px; flex-wrap: wrap;">
+                        <button onclick="showPairingModal()" class="btn btn-primary">🔗 Appairer un appareil</button>
+                    </div>
+                </div>
+                <div class="devices-grid" id="devicesContainer"></div>
+            </div>
+        </div>
+
+        <div id="deviceControls" style="display: none;">
+            <h3>Contrôles ESP32</h3>
+            <div class="control-group">
+                <label>Servo (0-180°):</label>
+                <input type="range" id="servoSlider" min="0" max="180" value="90" 
+                    onchange="controlServo(selectedDeviceId, this.value)">
+                <span id="servoValue">90°</span>
+            </div>
+            <div class="control-group">
+                <button onclick="readUltrasonic(selectedDeviceId)">Lire Distance</button>
+                <div id="distanceResult"></div>
+            </div>
+        </div>
+
+        <!-- Contrôle Servo -->
+        <div class="section" id="controlSection" style="display: none;">
+            <h2>🎯 Contrôle du Servo</h2>
+            
+            <div class="control-panel">
+                <div class="slider-container">
+                    <label>Position: <span id="servoValue">90</span>°</label>
+                    <input type="range" id="servoSlider" min="0" max="180" value="90">
+                </div>
+
+                <div class="quick-actions">
+                    <h3>Positions rapides</h3>
+                    <div class="action-buttons">
+                        <button onclick="setServoAngle(0)" class="btn btn-primary">0°</button>
+                        <button onclick="setServoAngle(45)" class="btn btn-primary">45°</button>
+                        <button onclick="setServoAngle(90)" class="btn btn-primary">90°</button>
+                        <button onclick="setServoAngle(135)" class="btn btn-primary">135°</button>
+                        <button onclick="setServoAngle(180)" class="btn btn-primary">180°</button>
+                    </div>
+                </div>
+
+                <div class="auto-modes">
+                    <h3>Modes automatiques</h3>
+                    <div class="mode-buttons">
+                        <button onclick="startSweep()" class="btn btn-success">🔄 Balayage Auto</button>
+                        <button onclick="stopSweep()" class="btn btn-danger">⏹️ Stop</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Logs -->
+        <div class="section">
+            <h2>📝 Journal d'activité</h2>
+            <div class="logs-header">
+                <button onclick="clearLogs()" class="btn btn-secondary btn-small">🗑️ Effacer</button>
+                <span class="logs-count">Messages: <span id="logsCount">0</span></span>
+            </div>
+            <div id="logs" class="logs-container"></div>
+        </div>
+    </div>
+
+    <script src="auth.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
