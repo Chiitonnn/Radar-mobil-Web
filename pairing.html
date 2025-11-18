@@ -5,48 +5,75 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Appairage - Contrôle Servo</title>
     <link rel="stylesheet" href="style.css">
+    <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
 </head>
 <body class="pairing-page">
     <div class="pairing-container">
         <div class="pairing-header">
-            <h1>🔗 Appairage Direct</h1>
-            <p>Connectez votre ESP32 en mode WiFi Manager</p>
+            <h1>🔗 Appairage ESP32</h1>
+            <p>Canal MQTT: <strong>gay/1</strong></p>
         </div>
 
         <div class="pairing-steps">
             <div class="step">
                 <div class="step-number">1</div>
                 <div class="step-content">
-                    <h3>Redémarrez l'ESP32</h3>
-                    <p>Appuyez sur le bouton RESET</p>
+                    <h3>Vérifiez la connexion ESP32</h3>
+                    <p>L'ESP32 doit être connecté au broker MQTT public</p>
                 </div>
             </div>
             <div class="step">
                 <div class="step-number">2</div>
                 <div class="step-content">
-                    <h3>Connectez-vous au WiFi</h3>
-                    <p>Réseau: <strong>ESP32_Servo_Setup</strong></p>
+                    <h3>Topic configuré</h3>
+                    <p>L'ESP32 doit utiliser le topic: <strong>gay/1</strong></p>
                 </div>
             </div>
             <div class="step">
                 <div class="step-number">3</div>
                 <div class="step-content">
-                    <h3>Configurez votre WiFi</h3>
-                    <p>La page de configuration s'ouvrira automatiquement</p>
+                    <h3>Démarrer l'appairage</h3>
+                    <p>Cliquez sur le bouton ci-dessous</p>
                 </div>
             </div>
         </div>
 
         <div class="pairing-actions">
-            <button onclick="startPairing()" class="btn btn-success btn-full">Démarrer l'appairage</button>
-            <a href="index.html" class="btn btn-primary btn-full">Retour à la connexion</a>
+            <button onclick="startPairingProcess()" class="btn btn-success btn-full">🔍 Démarrer l'appairage</button>
+            <a href="dashboard.html" class="btn btn-primary">📱 Retour au tableau de bord</a>
+            <a href="index.html" class="btn btn-secondary">🔐 Retour à la connexion</a>
         </div>
     </div>
 
+    <script src="auth.js"></script>
+    <script src="app.js"></script>
     <script>
-        function startPairing() {
-            alert("Mode appairage activé ! Connectez-vous au WiFi 'ESP32_Servo_Setup'");
+        async function startPairingProcess() {
+            if (!authManager.currentUser) {
+                alert('Veuillez vous connecter d\'abord');
+                window.location.href = 'index.html';
+                return;
+            }
+
+            try {
+                const device = await authManager.startPairingProcess();
+                if (device) {
+                    alert(`Appareil ${device.name} appairé avec succès sur gay/1 !`);
+                    window.location.href = 'dashboard.html';
+                } else {
+                    alert('Aucun appareil détecté. Vérifiez la configuration ESP32.');
+                }
+            } catch (error) {
+                alert('Erreur lors de l\'appairage: ' + error.message);
+            }
         }
+
+        // Redirection si non connecté
+        document.addEventListener('DOMContentLoaded', function() {
+            if (!authManager.currentUser) {
+                window.location.href = 'index.html';
+            }
+        });
     </script>
 </body>
 </html>

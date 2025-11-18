@@ -12,6 +12,7 @@
             <h1>👤 Mon Profil</h1>
             <div class="user-info">
                 <a href="dashboard.html" class="btn btn-primary btn-small">← Retour</a>
+                <button onclick="logout()" class="btn btn-danger btn-small">🚪 Déconnexion</button>
             </div>
         </div>
     </header>
@@ -36,14 +37,18 @@
                     <label>Nombre d'appareils</label>
                     <div class="value" id="profileDevices">-</div>
                 </div>
+                <div class="profile-field">
+                    <label>Canal MQTT</label>
+                    <div class="value"><strong>gay/1</strong></div>
+                </div>
             </div>
         </div>
 
         <div class="section">
             <h2>Actions du compte</h2>
             <div class="profile-actions">
-                <button onclick="logout()" class="btn btn-danger">🚪 Déconnexion</button>
                 <a href="dashboard.html" class="btn btn-primary">📱 Tableau de bord</a>
+                <button onclick="logout()" class="btn btn-danger">🚪 Déconnexion</button>
             </div>
         </div>
     </div>
@@ -64,10 +69,6 @@
             const devicesCount = authManager.getUserDevices().length;
             document.getElementById('profileDevices').textContent = devicesCount;
         });
-
-        function logout() {
-            authManager.logout();
-        }
     </script>
 </body>
 </html>

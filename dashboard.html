@@ -3,17 +3,27 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tableau de Bord - Contrôle Servo</title>
+    <title>Tableau de Bord - Radar Servo</title>
     <link rel="stylesheet" href="style.css">
     <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
 </head>
 <body class="dashboard-page">
     <header class="dashboard-header">
         <div class="header-content">
-            <h1>🎮 Tableau de Bord Servo</h1>
+            <h1>🎮 Contrôle Radar</h1>
             <div class="user-info">
+                <div class="waiting-actions">
+                    <button onclick="showPairingModal()" class="btn btn-secondary btn-small">
+                        🔗 Appairer le radar
+                    </button>
+                </div>
+                <div class="connection-status">
+                    <span>RADAR: </span>
+                    <span id="mqttStatus" class="status-disconnected">Déconnecté</span>
+                </div>
                 <span class="user-email" id="userEmail">utilisateur@email.com</span>
-                <a href="profile.html" class="btn btn-secondary btn-small">Mon Profil</a>
+                <a href="profile.html" class="btn btn-secondary btn-small">👤 Profil</a>
+                <button onclick="logout()" class="btn btn-danger btn-small">🚪 Déco</button>
             </div>
         </div>
     </header>
@@ -21,59 +31,72 @@
     <div class="dashboard-container">
         <!-- Section Appareils -->
         <div class="section">
-            <h2>📱 Mes Appareils</h2>
+            <h2>📱 Mes Radars</h2>
             <div id="devicesList">
                 <div class="no-devices" id="noDevices">
-                    <p>Aucun appareil appairé</p>
-                    <div style="display: flex; gap: 10px; justify-content: center; margin-top: 15px; flex-wrap: wrap;">
-                        <button onclick="showPairingModal()" class="btn btn-primary">🔗 Appairer un appareil</button>
-                    </div>
+                    <p>Aucun radar appairé</p>
                 </div>
                 <div class="devices-grid" id="devicesContainer"></div>
             </div>
         </div>
 
-        <div id="deviceControls" style="display: none;">
-            <h3>Contrôles ESP32</h3>
-            <div class="control-group">
-                <label>Servo (0-180°):</label>
-                <input type="range" id="servoSlider" min="0" max="180" value="90" 
-                    onchange="controlServo(selectedDeviceId, this.value)">
-                <span id="servoValue">90°</span>
-            </div>
-            <div class="control-group">
-                <button onclick="readUltrasonic(selectedDeviceId)">Lire Distance</button>
-                <div id="distanceResult"></div>
+        <!-- Section Contrôle Radar (apparaît après sélection) -->
+        <div class="section" id="controlSection" style="display: none;">
+            <h2>🎯 Contrôle du Balayage Radar</h2>
+            
+            <div class="radar-controls">
+                <!-- Configuration Plage Personnalisée -->
+                <div class="control-group">
+                    <h3>⚙️ Plage de Balayage</h3>
+                    <div class="range-inputs">
+                        <div class="input-group">
+                            <label>Angle de départ:</label>
+                            <input type="number" id="startAngle" min="0" max="179" value="0" class="angle-input">
+                            <span>°</span>
+                        </div>
+                        <div class="input-group">
+                            <label>Angle de fin:</label>
+                            <input type="number" id="endAngle" min="1" max="180" value="180" class="angle-input">
+                            <span>°</span>
+                        </div>
+                    </div>
+                    <div class="control-actions">
+                        <button onclick="applyCustomRange()" class="btn btn-success">🔄 Appliquer la plage</button>
+                        <button onclick="resetToFullRange()" class="btn btn-primary">🔄 Balayage complet (0-180°)</button>
+                    </div>
+                </div>
+
+                <!-- Informations en Temps Réel -->
+                <div class="control-group">
+                    <h3>📊 État du Radar</h3>
+                    <div class="radar-status">
+                        <div class="status-item">
+                            <span class="label">Plage actuelle:</span>
+                            <span id="currentRange" class="value">0° - 180°</span>
+                        </div>
+                        <div class="status-item">
+                            <span class="label">Angle courant:</span>
+                            <span id="currentAngle" class="value">-</span>
+                        </div>
+                        <div class="status-item">
+                            <span class="label">Dernière distance:</span>
+                            <span id="currentDistance" class="value">-</span>
+                        </div>
+                        <div class="status-item">
+                            <span class="label">Mode:</span>
+                            <span id="scanMode" class="value">Balayage complet</span>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
 
-        <!-- Contrôle Servo -->
-        <div class="section" id="controlSection" style="display: none;">
-            <h2>🎯 Contrôle du Servo</h2>
-            
-            <div class="control-panel">
-                <div class="slider-container">
-                    <label>Position: <span id="servoValue">90</span>°</label>
-                    <input type="range" id="servoSlider" min="0" max="180" value="90">
-                </div>
-
-                <div class="quick-actions">
-                    <h3>Positions rapides</h3>
-                    <div class="action-buttons">
-                        <button onclick="setServoAngle(0)" class="btn btn-primary">0°</button>
-                        <button onclick="setServoAngle(45)" class="btn btn-primary">45°</button>
-                        <button onclick="setServoAngle(90)" class="btn btn-primary">90°</button>
-                        <button onclick="setServoAngle(135)" class="btn btn-primary">135°</button>
-                        <button onclick="setServoAngle(180)" class="btn btn-primary">180°</button>
-                    </div>
-                </div>
-
-                <div class="auto-modes">
-                    <h3>Modes automatiques</h3>
-                    <div class="mode-buttons">
-                        <button onclick="startSweep()" class="btn btn-success">🔄 Balayage Auto</button>
-                        <button onclick="stopSweep()" class="btn btn-danger">⏹️ Stop</button>
-                    </div>
+        <!-- Visualisation Radar (apparaît après sélection) -->
+        <div class="section" id="radarVizSection" style="display: none;">
+            <h2>📡 Visualisation Radar</h2>
+            <div class="radar-container">
+                <div class="radar-display">
+                    <canvas id="radarCanvas" width="400" height="400"></canvas>
                 </div>
             </div>
         </div>
