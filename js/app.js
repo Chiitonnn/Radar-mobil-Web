@@ -58,20 +58,11 @@ class ServoController {
         if (!selectedDevice) return;
 
         if (data.angle !== undefined && data.distance !== undefined) {
-            // Mettre à jour l'affichage
             this.ui.updateRadarDisplay(data.angle, data.distance);
-            
-            // Ajouter la détection
             this.radarVisualizer.addDetection(data.angle, data.distance);
-            
-            // Mettre à jour les visualisations
             this.radarVisualizer.updateRadarVisualization(data.angle, data.distance);
             this.radarVisualizer.updateShortRadarVisualization(data.angle, data.distance);
-            
-            // Mettre à jour la liste des détections
             this.ui.updateDetectionsList(this.radarVisualizer.getRecentDetections());
-            
-            // Log
             this.ui.log(`📡 ${data.angle}° | ${data.distance.toFixed(1)}cm`);
         }
     }
@@ -84,11 +75,9 @@ class ServoController {
         }
         
         try {
-            // Mettre à jour localement
             this.deviceManager.setScanRange(start, end);
             this.deviceManager.updateRangeDisplay();
-            
-            // Envoyer à l'ESP32
+
             const success = window.authManager.controlServo(start, end);
             
             if (success) {
@@ -114,7 +103,6 @@ class ServoController {
             document.getElementById('controlSection').style.display = 'block';
             document.getElementById('radarVizSection').style.display = 'block';
             
-            // Réinitialiser les radars
             this.radarVisualizer.initRadarVisualization();
             this.radarVisualizer.initShortRadarVisualization();
             
@@ -206,6 +194,7 @@ function clearLogs() {
         servoController.ui.clearLogs();
     }
 }
+
 
 // ===============================================
 // FONCTIONS D'APPAIRAGE 
@@ -449,7 +438,6 @@ window.completePairing = completePairing;
 window.retryPairing = retryPairing;
 window.hidePairingModal = hidePairingModal;
 
-// Exposer authManager globalement (si pas déjà fait dans auth.js)
 if (typeof authManager !== 'undefined' && !window.authManager) {
     window.authManager = authManager;
 }

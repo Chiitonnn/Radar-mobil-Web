@@ -97,7 +97,7 @@ class RadarVisualizer {
         ctx.textBaseline = 'bottom';
         ctx.translate(15, margin.top + plotHeight / 2);
         ctx.rotate(-Math.PI / 2);
-        ctx.fillText('Distance (cm)', 0, 0);
+        ctx.fillText('Distance (mm)', 0, 0);
         ctx.restore();
     }
 
