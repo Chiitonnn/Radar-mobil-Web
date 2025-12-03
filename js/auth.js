@@ -6,14 +6,13 @@ class AuthManager {
         this.mqttClient = null;
         this.pairingPromise = null;
         this.isConnecting = false;
-        
-        // ✅ TOPICS POUR SON CODE ESP32
+
         this.topics = {
             discover: 'gay/1/discover',
             register: 'gay/1/register', 
-            command: 'gay/1/setScan',  // 👈 SON TOPIC DE COMMANDE
+            command: 'gay/1/setScan',
             status: 'gay/1/status',
-            data: 'gay/1'             // 👈 SON TOPIC DE DONNÉES
+            data: 'gay/1' 
         };
         
         this.init();
@@ -39,7 +38,6 @@ class AuthManager {
         }
     }
 
-    // MODIFIÉ: Configuration MQTT pour SON code
     initMQTT() {
         if (this.isConnecting) return;
         
@@ -95,16 +93,13 @@ class AuthManager {
         }
     }
 
-    // MODIFIÉ: Abonnement aux topics de SON code
     subscribeToTopics() {
-        // S'abonner aux données du radar (son topic principal)
         this.mqttClient.subscribe(this.topics.data, (err) => {
             if (!err) {
                 console.log(`✅ Abonné aux données: ${this.topics.data}`);
             }
         });
         
-        // S'abonner aux réponses d'appairage
         this.mqttClient.subscribe(this.topics.register, (err) => {
             if (!err) {
                 console.log(`✅ Abonné à l'appairage: ${this.topics.register}`);
@@ -112,17 +107,14 @@ class AuthManager {
         });
     }
 
-    // MODIFIÉ: Gestion des messages pour SON code
     handleMQTTMessage(topic, message) {
         try {
             console.log(`📥 MQTT [${topic}]:`, message);
             const data = JSON.parse(message);
             
-            // Données du radar (son topic principal)
             if (topic === this.topics.data) {
                 this.handleRadarData(data);
             }
-            // Réponse à l'appairage
             else if (topic === this.topics.register) {
                 this.handleDeviceRegistration(data);
             }
@@ -135,24 +127,20 @@ class AuthManager {
     handleRadarData(data) {
         console.log('📡 Données radar:', data);
         
-        // Ne transmettre les données QUE si un appareil est appairé
         if (this.getUserDevices().length > 0) {
             if (typeof this.onDeviceData === 'function') {
                 this.onDeviceData(data);
             }
             
-            // Logger dans l'interface seulement si appairé
             if (window.servoController && data.angle !== undefined && data.distance !== undefined) {
                 window.servoController.log(`📡 Angle: ${data.angle}° | Distance: ${data.distance}cm`);
             }
         }
-        // Si pas d'appareil appairé, juste logger dans la console
         else {
             console.log('📡 Données reçues (attente appairage):', data);
         }
     }
 
-    // MODIFIÉ: Appairage pour SON code
     async startPairingProcess() {
         if (!this.currentUser) {
             this.showNotification('Veuillez vous connecter d\'abord', 'warning');
@@ -190,7 +178,6 @@ class AuthManager {
                 }
             };
 
-            // Envoyer la demande de découverte
             const discoveryMessage = JSON.stringify({
                 action: 'discover',
                 user: this.currentUser.id,
@@ -203,7 +190,6 @@ class AuthManager {
         });
     }
 
-    // MODIFIÉ: Publication MQTT
     publish(topic, message) {
         if (!this.isMQTTConnected()) {
             console.warn('MQTT non connecté, message non envoyé');
@@ -220,9 +206,7 @@ class AuthManager {
         }
     }
 
-    // MODIFIÉ: Contrôle du radar - ENVOYER LA PLAGE DE BALAYAGE
     controlRadar(startAngle, endAngle) {
-        // SON code attend "start-end" comme "30-90"
         const command = `${startAngle}-${endAngle}`;
         
         const success = this.publish(this.topics.command, command);
@@ -234,18 +218,14 @@ class AuthManager {
         return success;
     }
 
-    // MODIFIÉ: Lecture distance - DÉMARRER UN BALAYAGE RAPIDE
     readDistance() {
-        // Envoyer une plage réduite pour une mesure rapide
-        return this.controlRadar(90, 90); // Rester à 90° pour une mesure
+        return this.controlRadar(90, 90);
     }
 
-    // MODIFIÉ: Contrôle servo - CHANGER LA PLAGE DE BALAYAGE
     controlServo(startAngle, endAngle) {
         return this.controlRadar(startAngle, endAngle);
     }
 
-    // Gestion de l'enregistrement d'appareil
     handleDeviceRegistration(deviceData) {
         if (this.pairingPromise) {
             const newDevice = {
@@ -447,7 +427,6 @@ class AuthManager {
 
 const authManager = new AuthManager();
 
-// FONCTIONS GLOBALES POUR LA NAVIGATION
 function showRegister() {
     document.getElementById('loginCard').style.display = 'none';
     document.getElementById('registerCard').style.display = 'block';
